@@ -1,0 +1,33 @@
+---
+version: "3"
+
+services:
+#  cypher:
+#    build: .
+#    container_name: cypher
+#    depends_on:
+#      - cypher-db
+#    networks:
+#      - cypher
+#    tty: true
+#    volumes:
+#      - .:/code/
+
+  neo:
+    container_name: neo
+    environment:
+      - NEO4J_AUTH=neo4j/neopath
+    image: neo4j:latest
+    networks:
+      - neopath
+    ports:
+      - 7474:7474
+      - 7687:7687
+#    volumes:
+#      - data:/var/lib/neo4j/data
+
+networks:
+  neopath:
+
+#volumes:
+#  data:
