@@ -2,16 +2,16 @@
 version: "3"
 
 services:
-#  cypher:
-#    build: .
-#    container_name: cypher
-#    depends_on:
-#      - cypher-db
-#    networks:
-#      - cypher
-#    tty: true
-#    volumes:
-#      - .:/code/
+  neopath:
+    build: .
+    container_name: neopath
+    depends_on:
+      - neo
+    networks:
+      - internal
+    tty: true
+    volumes:
+      - .:/code/
 
   neo:
     container_name: neo
@@ -19,15 +19,10 @@ services:
       - NEO4J_AUTH=neo4j/neopath
     image: neo4j:latest
     networks:
-      - neopath
+      - internal
     ports:
       - 7474:7474
       - 7687:7687
-#    volumes:
-#      - data:/var/lib/neo4j/data
 
 networks:
-  neopath:
-
-#volumes:
-#  data:
+  internal:

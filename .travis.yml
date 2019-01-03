@@ -1,0 +1,15 @@
+sudo: required
+
+services:
+    - docker
+
+before_script:
+  - docker-compose build
+  - docker-compose up -d
+
+script:
+  - ./helper.sh test
+  - ./helper.sh lint
+
+after_success:
+  - docker exec -it neopath codecov --token=${CODECOV_TOKEN}

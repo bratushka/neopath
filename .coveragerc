@@ -1,0 +1,7 @@
+[run]
+source =
+    neopath
+
+[report]
+exclude_lines =
+    raise NotImplementedError
