@@ -45,7 +45,7 @@ results = (MyDB
     .by('a')
     .connected_through('a_loves_b')
     .with_('b')
-    .connected_through(Edge, edges=[None, 5], node_types=Blue ^ Purple)
+    .connected_through(Edge, max_hops=5, node_types=Blue ^ Purple)
     .to(Orange)
 )
 ```
@@ -55,7 +55,7 @@ MATCH
   h = (c:Blue)-[d]->(a:Purple),
   i = (a)-[a_loves_b:LOVES]-(b:Green),
   j = (b)<-[e:HATES]-(a),
-  k = (b)-[*0..5]->(g:Orange)
+  k = (b)-[*..5]->(g:Orange)
 WITH *, relationships(k) as f_edges, nodes(k) as f_nodes
 WHERE all(m IN f_nodes[1..-1] WHERE "Blue" in labels(m) XOR "Purple" in labels(m))
 RETURN *
