@@ -24,6 +24,13 @@ def mapper_builder(identifier: EntityIdentifier) -> Callable:
     return lambda: identifier
 
 
+def inline_identifier_builder(identifier: EntityIdentifier) -> str:
+    """Build an inline_identifier from an EntityIdentifier"""
+    if isinstance(identifier, str):
+        return '' if not identifier else ':' + identifier
+    raise NotImplementedError
+
+
 def vars_generator() -> Iterator[str]:
     """Generate an iterator of: _a, _b, ..., _z, _aa, _ab, ..."""
     for i in count(1):
@@ -42,6 +49,7 @@ class Row(NamedTuple):
 
 class Query:
     """Cypher query builder"""
+    # noinspection PyUnresolvedReferences
     def __init__(self, db: 'DB', table: Tuple[Row, ...] = None):
         """
         self.table is a table from which we'll be constructing the query.
@@ -67,7 +75,8 @@ class Query:
             var: Optional[str],
     ):
         table = (*self.table, Row(
-            mapper_builder(identifier),
+            mapper=mapper_builder(identifier),
+            inline_identifier=inline_identifier_builder(identifier),
             var=var,
             direction=direction,
         ))
@@ -115,9 +124,10 @@ class Query:
 
     def __str__(self):
         """Return a compiled Cypher query"""
-        # Assign a variable to each Row.
         vars_iterator = vars_generator()
 
+        # Assign a variable to each Row.
+        # noinspection PyProtectedMember
         table = tuple(
             row if row.var else row._replace(var=next(vars_iterator))
             for row in self.table

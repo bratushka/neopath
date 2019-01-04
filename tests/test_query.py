@@ -25,5 +25,18 @@ class QueryTests(TestCase):
             'MATCH (_a)',
             'RETURN _a',
         ))
+        self.assertEqual(str(query), expected)
 
+        query = Query(DB()).with_('SomeLabel')
+        expected = '\n'.join((
+            'MATCH (_a:SomeLabel)',
+            'RETURN _a',
+        ))
+        self.assertEqual(str(query), expected)
+
+        query = Query(DB()).with_('SomeLabel:OtherLabel')
+        expected = '\n'.join((
+            'MATCH (_a:SomeLabel:OtherLabel)',
+            'RETURN _a',
+        ))
         self.assertEqual(str(query), expected)
