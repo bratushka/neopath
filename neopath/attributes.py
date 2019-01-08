@@ -23,9 +23,17 @@ class Attr:
         return any(isinstance(value, t) for t in cls.types)
 
     @classmethod
-    def check_constraints(cls, value) -> bool:
+    def check_constraints(cls, _value) -> bool:
         """Check if the value matches Neo4j constraints"""
-        raise NotImplementedError
+        return True
+
+    @classmethod
+    def check(cls, value):
+        """Perform all check in the right order"""
+        return all(f(value) for f in (
+            cls.check_type,
+            cls.check_constraints,
+        ))
 
 
 class Int(Attr):

@@ -25,8 +25,7 @@ class AttrTests(TestCase):
 
     def test_check_types(self):
         """Check .check_types() method"""
-        # noinspection PyAbstractClass
-        class SomeAttr(attributes.Attr):  # pylint: disable=abstract-method
+        class SomeAttr(attributes.Attr):
             """Attribute example"""
             types = (str, int)
 
@@ -34,6 +33,29 @@ class AttrTests(TestCase):
         self.assertTrue(SomeAttr.check_type(2))
         self.assertFalse(SomeAttr.check_type(2.))
         self.assertFalse(SomeAttr.check_type(()))
+
+    def test_check_constraints(self):
+        """Check .check_constraints(), should be positive if not overwritten"""
+        self.assertTrue(attributes.Attr.check_constraints(''))
+        self.assertTrue(attributes.Attr.check_constraints(2))
+        self.assertTrue(attributes.Attr.check_constraints(2.))
+        self.assertTrue(attributes.Attr.check_constraints(()))
+
+    def test_check(self):
+        """Method .check() should check the value in all ways"""
+        class SomeAttr(attributes.Attr):
+            """Attribute example"""
+            types = (str,)
+
+            @classmethod
+            def check_constraints(cls, value):
+                return len(value) <= 1
+
+        attr = SomeAttr()
+
+        self.assertTrue(attr.check('a'))
+        self.assertFalse(attr.check('ab'))
+        self.assertFalse(attr.check(2))
 
 
 class IntTests(TestCase):
