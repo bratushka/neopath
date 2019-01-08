@@ -20,3 +20,14 @@ class AttrTests(TestCase):
         attr = attributes.Attr(prop_name='awesome')
 
         self.assertIs(attr.prop_name, 'awesome')
+
+    def test_check_types(self):
+        """Check .check_types() method"""
+        class SomeAttr(attributes.Attr):
+            """Attribute example"""
+            types = (str, int)
+
+        self.assertTrue(SomeAttr.check_type(''))
+        self.assertTrue(SomeAttr.check_type(2))
+        self.assertFalse(SomeAttr.check_type(2.))
+        self.assertFalse(SomeAttr.check_type(()))
