@@ -75,7 +75,7 @@ class Query:
             direction: Optional[bool],
             identifier: NodeIdentifier,
             var: Optional[str],
-    ):
+    ) -> 'Query':
         table = (*self.table, Row(
             mapper=mapper_builder(identifier),
             inline_identifier=inline_identifier_builder(identifier),
@@ -125,7 +125,7 @@ class Query:
         """Add a `WHERE` statement"""
         raise NotImplementedError
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a compiled Cypher query"""
         vars_iterator = vars_generator()
 

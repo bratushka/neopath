@@ -1,6 +1,8 @@
 """Tests for neopath.attributes"""
 from unittest import TestCase
 
+from neo4j.types import INT64_MAX, INT64_MIN
+
 from neopath import attributes, entities
 
 
@@ -23,7 +25,8 @@ class AttrTests(TestCase):
 
     def test_check_types(self):
         """Check .check_types() method"""
-        class SomeAttr(attributes.Attr):
+        # noinspection PyAbstractClass
+        class SomeAttr(attributes.Attr):  # pylint: disable=abstract-method
             """Attribute example"""
             types = (str, int)
 
@@ -31,3 +34,14 @@ class AttrTests(TestCase):
         self.assertTrue(SomeAttr.check_type(2))
         self.assertFalse(SomeAttr.check_type(2.))
         self.assertFalse(SomeAttr.check_type(()))
+
+
+class IntTests(TestCase):
+    """Tests for Int"""
+    def test_check_constraints(self):
+        """Neo4j int type is i64"""
+        self.assertTrue(attributes.Int.check_constraints(INT64_MIN))
+        self.assertTrue(attributes.Int.check_constraints(INT64_MAX))
+
+        self.assertFalse(attributes.Int.check_constraints(INT64_MIN - 1))
+        self.assertFalse(attributes.Int.check_constraints(INT64_MAX + 1))
