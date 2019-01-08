@@ -1,8 +1,8 @@
-"""Tests for neopath.models"""
+"""Tests for neopath.entities"""
 from unittest import TestCase
 
 from neopath import exceptions
-from neopath.models import Node
+from neopath.entities import Node
 
 
 class NodeNeoTests(TestCase):
@@ -62,3 +62,11 @@ class NodeNeoTests(TestCase):
                 class Neo:
                     """Neo class with bad labels"""
                     labels = (None,)
+
+        with self.assertRaises(exceptions.BadNodeLabels):
+            # noinspection PyUnusedLocal
+            class BadNodeFour(Node):  # pylint: disable=unused-variable
+                """Node with a Neo property and 0 labels"""
+                class Neo:
+                    """Neo class with bad labels"""
+                    labels = ()

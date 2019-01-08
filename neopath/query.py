@@ -12,11 +12,11 @@ from typing import (
     Union,
 )
 
-from . import models
+from . import entities
 
 
-NodeIdentifier = Union[Type[models.Node], str]
-EdgeIdentifier = Union[Type[models.Edge], str]
+NodeIdentifier = Union[Type[entities.Node], str]
+EdgeIdentifier = Union[Type[entities.Edge], str]
 EntityIdentifier = Union[NodeIdentifier, EdgeIdentifier]
 
 
@@ -29,7 +29,7 @@ def inline_identifier_builder(identifier: EntityIdentifier) -> str:
     """Build an inline_identifier from an EntityIdentifier"""
     if isinstance(identifier, str):
         return '' if not identifier else ':' + identifier
-    if issubclass(identifier, models.Node):
+    if issubclass(identifier, entities.Node):
         return ':' + ':'.join(identifier.neo.labels)
     raise NotImplementedError
 
@@ -65,7 +65,7 @@ class Query:
             var: Optional[str] = None,
             min_hops: int = None,
             max_hops: int = None,
-            node_types: NodeIdentifier = models.Node,
+            node_types: NodeIdentifier = entities.Node,
     ) -> 'Query':
         """Add an edge to the query"""
         raise NotImplementedError

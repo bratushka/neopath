@@ -1,7 +1,7 @@
 """Tests for neopath.query"""
 from unittest import TestCase
 
-from neopath.models import Node
+from neopath.entities import Node
 from neopath.query import Query, vars_generator
 
 
