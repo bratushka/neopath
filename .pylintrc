@@ -1,5 +1,7 @@
 [MASTER]
 
-disable=too-few-public-methods
+disable=too-few-public-methods,
+        bad-mcs-classmethod-argument,
+        no-member
 
 max-line-length=80

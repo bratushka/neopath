@@ -8,14 +8,15 @@ from typing import (
     NamedTuple,
     Optional,
     Tuple,
+    Type,
     Union,
 )
 
 from . import models
 
 
-NodeIdentifier = Union[models.Node, str]
-EdgeIdentifier = Union[models.Edge, str]
+NodeIdentifier = Union[Type[models.Node], str]
+EdgeIdentifier = Union[Type[models.Edge], str]
 EntityIdentifier = Union[NodeIdentifier, EdgeIdentifier]
 
 
@@ -28,6 +29,8 @@ def inline_identifier_builder(identifier: EntityIdentifier) -> str:
     """Build an inline_identifier from an EntityIdentifier"""
     if isinstance(identifier, str):
         return '' if not identifier else ':' + identifier
+    if issubclass(identifier, models.Node):
+        return ':' + ':'.join(identifier.neo.labels)
     raise NotImplementedError
 
 
@@ -50,11 +53,10 @@ class Row(NamedTuple):
 class Query:
     """Cypher query builder"""
     # noinspection PyUnresolvedReferences
-    def __init__(self, db: 'DB', table: Tuple[Row, ...] = None):
+    def __init__(self, table: Tuple[Row, ...] = None):
         """
         self.table is a table from which we'll be constructing the query.
         """
-        self.db = db  # pylint: disable=invalid-name
         self.table = table or ()
 
     def connected_through(  # pylint: disable=too-many-arguments
@@ -80,7 +82,7 @@ class Query:
             var=var,
             direction=direction,
         ))
-        return Query(self.db, table)
+        return Query(table)
 
     def to(  # pylint: disable=invalid-name
             self,
@@ -117,6 +119,7 @@ class Query:
         The query will look like ()-[]-(this_node).
         """
         return self._by_with_to(None, identifier, var)
+    match = with_
 
     def where(self) -> 'Query':
         """Add a `WHERE` statement"""
