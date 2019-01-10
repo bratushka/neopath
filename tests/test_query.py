@@ -1,6 +1,7 @@
 """Tests for neopath.query"""
 from unittest import TestCase
 
+from neopath import attributes
 from neopath.entities import Node
 from neopath.query import Query, vars_generator
 
@@ -12,8 +13,8 @@ class Tests(TestCase):
         iterator = vars_generator()
 
         for char_number in range(ord('a'), ord('z') + 1):
-            self.assertEqual(next(iterator), '_' + chr(char_number))
-        self.assertEqual(next(iterator), '_aa')
+            self.assertEqual(next(iterator), chr(char_number))
+        self.assertEqual(next(iterator), 'aa')
 
 
 class QueryTests(TestCase):
@@ -75,3 +76,39 @@ class QueryTests(TestCase):
 
     def test_simple_where(self):
         """Check the .where() method with only .match()"""
+        query = (Query()
+                 .match('', 'a')
+                 .where('exists(a.name)')
+                 .where('a.age = 2')
+                 )
+        expected = '\n'.join((
+            'MATCH (a)',
+            'WHERE exists(a.name)',
+            '  AND a.age = 2',
+            'RETURN a',
+        ))
+        self.assertEqual(str(query), expected)
+
+    def test_where_with_node(self):
+        """Check the .where() method with a Node as a parameter"""
+        class SomeNode(Node):
+            """Node example"""
+            attr = attributes.AnyAttr(prop_name='name')
+
+        query = (Query()
+                 .match(SomeNode, 'f')
+                 .where(SomeNode.attr == 2)
+                 .where('exists(f.something)')
+                 .where(SomeNode.attr != '2')
+                 )
+        expected = '\n'.join((
+            'MATCH (f:SomeNode)',
+            'WHERE f.name = $a',
+            '  AND exists(f.something)',
+            '  AND f.name <> $b',
+            'RETURN f',
+        ))
+        self.assertEqual(str(query), expected)
+
+        expected = {'a': 2, 'b': '2'}
+        self.assertEqual(query.get_vars(), expected)

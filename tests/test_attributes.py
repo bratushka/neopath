@@ -57,6 +57,34 @@ class AttrTests(TestCase):
         self.assertFalse(attr.check('ab'))
         self.assertFalse(attr.check(2))
 
+    def test___eq__(self):
+        """Test the __eq__ method"""
+        attr = attributes.AnyAttr(prop_name='attr')
+        comparison = attr == 2
+
+        self.assertIs(comparison.attribute, attr)
+        self.assertEqual(comparison.operator, '=')
+        self.assertEqual(comparison.other, 2)
+
+    def test___ne__(self):
+        """Test the __ne__ method"""
+        attr = attributes.AnyAttr(prop_name='attr')
+        comparison = attr != 2
+
+        self.assertIs(comparison.attribute, attr)
+        self.assertEqual(comparison.operator, '<>')
+        self.assertEqual(comparison.other, 2)
+
+
+class AnyAttrTests(TestCase):
+    """Tests for AnyAttr"""
+    def test_check_types(self):
+        """Any type should be fine"""
+        self.assertTrue(attributes.AnyAttr.check_type(''))
+        self.assertTrue(attributes.AnyAttr.check_type(2))
+        self.assertTrue(attributes.AnyAttr.check_type(2.))
+        self.assertTrue(attributes.AnyAttr.check_type(()))
+
 
 class IntTests(TestCase):
     """Tests for Int"""

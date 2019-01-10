@@ -41,7 +41,7 @@ class NeoNode:
 class MetaNode(MetaEntity):
     """Metaclass for Node"""
     def __new__(mcs: Type, name: str, bases: Tuple[Type, ...], attrs: dict):
-        """Custom inheritance method"""
+        """Remove `Neo` attribute, add `neo`"""
         neo = attrs.pop('Neo', None)
         cls = super().__new__(mcs, name, bases, attrs)
 

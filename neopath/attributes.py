@@ -1,6 +1,10 @@
 """Attributes for Nodes and Edges"""
+from functools import partialmethod
 from typing import (
+    Any,
+    Callable,
     Iterable,
+    NamedTuple,
     Type,
 )
 
@@ -34,6 +38,27 @@ class Attr:
             cls.check_type,
             cls.check_constraints,
         ))
+
+    def _compare(self, other: Any, operator: str) -> 'Comparison':
+        return Comparison(attribute=self, operator=operator, other=other)
+
+    __eq__: Callable[[], 'Comparison'] = partialmethod(_compare, operator='=')
+    __ne__: Callable[[], 'Comparison'] = partialmethod(_compare, operator='<>')
+
+
+class AnyAttr(Attr):
+    """Any Neo4j attribute type"""
+    @classmethod
+    def check_type(cls, _value) -> bool:
+        """Any type is fine"""
+        return True
+
+
+class Comparison(NamedTuple):
+    """Data needed to build a comparison"""
+    attribute: Attr  # the attribute being compared
+    operator: str  # the comparison operator
+    other: Any  # the value to be compared with
 
 
 class Int(Attr):
