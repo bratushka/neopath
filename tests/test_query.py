@@ -151,6 +151,32 @@ class QueryTests(TestCase):
         ))
         self.assertEqual(str(query), expected)
 
+    def test_match_with_hops(self):
+        """Test min_hops and max_hops in the `connected_through` method"""
+        query = (Query()
+                 .match('')
+                 .connected_through('', min_hops=1)
+                 .to('')
+                 .connected_through('', max_hops=3)
+                 .to('')
+                 .connected_through('', min_hops=1, max_hops=3)
+                 .to('')
+                 .connected_through('')
+                 .to('')
+                 )
+        expected = '\n'.join((
+            'MATCH _d = (_a)-[*1..]->(_e),',
+            '      _h = (_e)-[*..3]->(_i),',
+            '      _l = (_i)-[*1..3]->(_m),',
+            '      (_m)-[_n]->(_o)',
+            'WITH *, relationships(_d)[1..-1] AS _b, nodes(_d)[1..-1] AS _c,',
+            '        relationships(_h)[1..-1] AS _f, nodes(_h)[1..-1] AS _g,',
+            '        relationships(_l)[1..-1] AS _j, nodes(_l)[1..-1] AS _k',
+            'RETURN _a, _b, _c, _e, _f, _g, _i, _j, _k, _m, _n, _o',
+        ))
+
+        self.assertEqual(str(query), expected)
+
     def test_where_with_edge(self):
         """Check the .where() method with a Node as a parameter"""
         class SomeNode(Node):

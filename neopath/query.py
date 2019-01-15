@@ -63,10 +63,33 @@ def vars_generator(taken: Set[str] = None) -> Iterator[str]:
 class Row(NamedTuple):
     """Compositional unit for the Query.table"""
     mapper: Callable  # mapper into Python object for the returned value
-    var: str = None  # assigned by user OR when a query construction is done
+    var: str = ''  # assigned by user OR when a query construction is done
     inline_identifier: str = ''  # example: ':SomeLabel:OtherLabel'
     direction: bool = None  # True - right, False - left, None - no direction
-    hops: str = None  # '' if min and max hops equal 1, else '*min..max'
+    hops: str = ''  # '' if min and max hops equal 1, else '*min..max'
+    path_var: str = ''  # required to handle arbitrary number of hops
+    nodes_var: str = ''  # required to handle arbitrary number of hops
+    edges_var: str = ''  # required to handle arbitrary number of hops
+    result: str = ''  # string for the RETURN statement
+
+    def autocomplete(self, vars_iterator: Iterator[str]) -> 'Row':
+        """Fill the row with required data"""
+        data = {}
+
+        if self.var:
+            data['result'] = self.var
+
+        if not self.var and not self.hops:
+            data['var'] = '_' + next(vars_iterator)
+            data['result'] = data['var']
+
+        if self.hops:
+            data['edges_var'] = '_' + next(vars_iterator)
+            data['nodes_var'] = '_' + next(vars_iterator)
+            data['path_var'] = '_' + next(vars_iterator)
+            data['result'] = data['edges_var'] + ', ' + data['nodes_var']
+
+        return self._replace(**data)
 
 
 class Condition(NamedTuple):
@@ -125,7 +148,7 @@ class Query:
     def connected_through(  # pylint: disable=too-many-arguments
             self,
             identifier: EdgeIdentifier,
-            var: Optional[str] = None,
+            var: str = '',
             min_hops: int = None,
             max_hops: int = None,
             _node_types: NodeIdentifier = entities.Node,
@@ -241,12 +264,8 @@ class Query:
         })
         values_iterator = vars_generator()
 
-        # Assign a variable to each Row.
-        # noinspection PyProtectedMember
-        table = tuple(
-            row if row.var else row._replace(var='_' + next(vars_iterator))
-            for row in self.table
-        )
+        # Add required data to each row.
+        table = tuple(row.autocomplete(vars_iterator) for row in self.table)
         # Assign a variable to each Condition if not just a string.
         # noinspection PyProtectedMember
         conditions = tuple(
@@ -288,7 +307,9 @@ class Query:
             ))
 
         def stringify_match(start: Row, edge: Row, end: Row) -> str:
-            return '(%s%s)%s-[%s%s%s]-%s(%s%s)' % (
+            path = '%s = ' % edge.path_var if edge.hops else ''
+
+            return path + '(%s%s)%s-[%s%s%s]-%s(%s%s)' % (
                 start.var,
                 start.inline_identifier,
                 '<' if end.direction is False else '',
@@ -302,15 +323,39 @@ class Query:
                 end.inline_identifier,
             )
 
-        matches = map(
+        # @TODO: change when `create` method is added
+        # A query consists of 4 parts:
+        # MATCH
+        # WITH
+        # WHERE
+        # RETURN
+
+        # Start with a MATCH part.
+        parts = ['MATCH %s' % ',\n      '.join(map(
             lambda q: stringify_match(*q),
             (table[i:i+3] for i in range(0, len(table) - 1, 2)),
-        )
-        wheres = tuple(c.build(table[c.row].var) for c in conditions)
-        returns = sorted({row.var for row in table})
+        ))]
 
-        return ''.join((
-            'MATCH %s' % ',\n      '.join(matches),
-            '' if not wheres else '\nWHERE %s' % ',\n  AND '.join(wheres),
-            '\nRETURN %s' % ', '.join(returns),
-        ))
+        # Append the WITH part only if needed.
+        with_part = 'WITH *, %s' % ',\n        '.join(
+            'relationships({0})[1..-1] AS {1}, nodes({0})[1..-1] AS {2}'.format(
+                row.path_var, row.edges_var, row.nodes_var
+            ) for row in table[1::2]
+            if row.hops
+        )
+        if with_part != 'WITH *, ':
+            parts.append(with_part)
+
+        # Append the WHERE part only if needed.
+        where_part = 'WHERE %s' % ',\n  AND '.join(
+            c.build(table[c.row].var) for c in conditions
+        )
+        if where_part != 'WHERE ':
+            parts.append(where_part)
+
+        # Add the RETURN part
+        parts.append('RETURN %s' % ', '.join(sorted({
+            row.result for row in table
+        })))
+
+        return '\n'.join(parts)
