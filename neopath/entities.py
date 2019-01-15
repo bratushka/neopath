@@ -26,7 +26,7 @@ class NeoNode:
     """Neo property for Node"""
     __slots__ = ('labels',)
 
-    def __init__(self, name: str, neo: Type = None):
+    def __init__(self, name: str, neo: Type):
         labels = getattr(neo, 'labels', [name])
         if (
                 isinstance(labels, str)
@@ -50,6 +50,29 @@ class MetaNode(MetaEntity):
         return cls
 
 
+class NeoEdge:
+    """Neo property for Edge"""
+    __slots__ = ('type',)
+
+    def __init__(self, name: str, neo: Type):
+        edge_type = getattr(neo, 'type', name.upper())
+        if not isinstance(edge_type, str):
+            raise exceptions.BadEdgeType
+        self.type: str = edge_type
+
+
+class MetaEdge(MetaEntity):
+    """Metaclass for Edge"""
+    def __new__(mcs: Type, name: str, bases: Tuple[Type, ...], attrs: dict):
+        """Remove `Neo` attribute, add `neo`"""
+        neo = attrs.pop('Neo', None)
+        cls = super().__new__(mcs, name, bases, attrs)
+
+        cls.neo = NeoEdge(cls.__name__, neo)
+
+        return cls
+
+
 # class Entity():
 #     """Base class for all nodes and edges."""
 
@@ -58,5 +81,5 @@ class Node(metaclass=MetaNode):
     """Base class for all nodes"""
 
 
-class Edge:
+class Edge(metaclass=MetaEdge):
     """Base class for all edges"""

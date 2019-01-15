@@ -35,6 +35,8 @@ def inline_identifier_builder(identifier: EntityIdentifier) -> str:
         return '' if not identifier else ':' + identifier
     if issubclass(identifier, entities.Node):
         return ':' + ':'.join(identifier.neo.labels)
+    if issubclass(identifier, entities.Edge):
+        return ':' + identifier.neo.type
     raise NotImplementedError
 
 
@@ -91,18 +93,35 @@ class Query:
         """Create an identical copy of self"""
         return Query(table or self.table, conditions or self.conditions)
 
+    def _add_row(self, row: Row) -> 'Query':
+        """Add a row to the table returning a copied Query object"""
+        return self.copy(table=(*self.table, row))
+
     def connected_through(  # pylint: disable=too-many-arguments
             self,
-            edge: EdgeIdentifier,
+            identifier: EdgeIdentifier,
             var: Optional[str] = None,
             min_hops: int = None,
             max_hops: int = None,
-            node_types: NodeIdentifier = entities.Node,
+            _node_types: NodeIdentifier = entities.Node,
     ) -> 'Query':
         """Add an edge to the query"""
         # @TODO: check if the node exists before adding edge
+        # @TODO: add node_types to the conditions
+        # @TODO: check hops values
+        hops = '' if min_hops is None and max_hops is None else '*%s..%s' % (
+            '' if min_hops is None else str(min_hops),
+            '' if max_hops is None else str(max_hops),
+        )
 
-        raise NotImplementedError
+        row = Row(
+            mapper=mapper_builder(identifier),
+            inline_identifier=inline_identifier_builder(identifier),
+            var=var,
+            hops=hops,
+        )
+
+        return self._add_row(row)
 
     def _by_with_to(
             self,
@@ -111,14 +130,14 @@ class Query:
             var: Optional[str],
     ) -> 'Query':
         """Add a node to the query"""
-        table = (*self.table, Row(
+        row = Row(
             mapper=mapper_builder(identifier),
             inline_identifier=inline_identifier_builder(identifier),
             var=var,
             direction=direction,
-        ))
+        )
 
-        return self.copy(table=table)
+        return self._add_row(row)
 
     def to(  # pylint: disable=invalid-name
             self,
@@ -132,7 +151,7 @@ class Query:
         """
         # @TODO: check if the edge exists before adding node
 
-        raise NotImplementedError
+        return self._by_with_to(True, identifier, var)
 
     def by(  # pylint: disable=invalid-name
             self,
@@ -146,7 +165,7 @@ class Query:
         """
         # @TODO: check if the edge exists before adding node
 
-        raise NotImplementedError
+        return self._by_with_to(False, identifier, var)
 
     def with_(
             self,
@@ -236,4 +255,30 @@ class Query:
                 'RETURN %s' % row.var
             ))
 
-        raise NotImplementedError
+        def stringify_match(start: Row, edge: Row, end: Row) -> str:
+            return '(%s%s)%s-[%s%s%s]-%s(%s%s)' % (
+                start.var,
+                start.inline_identifier,
+                '<' if end.direction is False else '',
+
+                edge.var,
+                edge.inline_identifier,
+                edge.hops,
+
+                '>' if end.direction is True else '',
+                end.var,
+                end.inline_identifier,
+            )
+
+        matches = map(
+            lambda q: stringify_match(*q),
+            (table[i:i+3] for i in range(0, len(table) - 1, 2)),
+        )
+        wheres = ()
+        returns = sorted({row.var for row in table})
+
+        return ''.join((
+            'MATCH %s' % ',\n      '.join(matches),
+            '' if not wheres else '\nWHERE %s' % ',\n  AND '.join(wheres),
+            '\nRETURN %s' % ', '.join(returns),
+        ))

@@ -2,7 +2,7 @@
 from unittest import TestCase
 
 from neopath import attributes
-from neopath.entities import Node
+from neopath.entities import Edge, Node
 from neopath.query import Query, vars_generator
 
 
@@ -112,3 +112,33 @@ class QueryTests(TestCase):
 
         expected = {'a': 2, 'b': '2'}
         self.assertEqual(query.get_vars(), expected)
+
+    def test_match_with_edge(self):
+        """Test the most basic query with an edge"""
+        class SomeNode(Node):
+            """Node example"""
+
+        class AnEdge(Edge):
+            """Edge example"""
+
+        query = (Query()
+                 .match('')
+                 .connected_through('')
+                 .to('')
+                 )
+        expected = '\n'.join((
+            'MATCH (_a)-[_b]->(_c)',
+            'RETURN _a, _b, _c',
+        ))
+        self.assertEqual(str(query), expected)
+
+        query = (Query()
+                 .match(SomeNode)
+                 .connected_through(AnEdge)
+                 .by(SomeNode)
+                 )
+        expected = '\n'.join((
+            'MATCH (_a:SomeNode)<-[_b:ANEDGE]-(_c:SomeNode)',
+            'RETURN _a, _b, _c',
+        ))
+        self.assertEqual(str(query), expected)

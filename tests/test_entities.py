@@ -2,7 +2,7 @@
 from unittest import TestCase
 
 from neopath import exceptions
-from neopath.entities import Node
+from neopath.entities import Edge, Node
 
 
 class NodeNeoTests(TestCase):
@@ -70,3 +70,37 @@ class NodeNeoTests(TestCase):
                 class Neo:
                     """Neo class with bad labels"""
                     labels = ()
+
+
+class EdgeNeoTests(TestCase):
+    """Tests for Edge.neo"""
+    def test_neo_labels(self):
+        """Property `neo` should have appropriate type"""
+        class OneEdge(Edge):
+            """Edge with no Neo property"""
+
+        self.assertEqual(OneEdge.neo.type, 'ONEEDGE')
+
+        class TwoEdge(Edge):
+            """Edge with a Neo property, but no type"""
+            class Neo:
+                """Empty Neo class"""
+
+        self.assertEqual(TwoEdge.neo.type, 'TWOEDGE')
+
+        class ThreeEdge(Edge):
+            """Edge with a Neo property and a type specified"""
+            class Neo:
+                """Neo class with a type"""
+                type = 'SomeType'
+
+        self.assertEqual(ThreeEdge.neo.type, 'SomeType')
+
+        with self.assertRaises(exceptions.BadEdgeType):
+            for type_ in (None, 1, (), {}):
+                # noinspection PyUnusedLocal
+                class BadEdge(Edge):  # pylint: disable=unused-variable
+                    """Node with a Neo property and 0 labels"""
+                    class Neo:
+                        """Neo class with bad labels"""
+                        type = type_
