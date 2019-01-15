@@ -8,6 +8,7 @@ from typing import (
     Mapping,
     NamedTuple,
     Optional,
+    Set,
     Tuple,
     Type,
     Union,
@@ -40,11 +41,17 @@ def inline_identifier_builder(identifier: EntityIdentifier) -> str:
     raise NotImplementedError
 
 
-def vars_generator() -> Iterator[str]:
+def vars_generator(taken: Set[str] = None) -> Iterator[str]:
     """Generate an iterator of: a, b, ..., z, aa, ab, ..."""
+    taken = taken or set()
+
     for i in count(1):
         for letters in product(ascii_lowercase, repeat=i):
-            yield ''.join(letters)
+            var = ''.join(letters)
+            if var in taken:
+                continue
+
+            yield var
 
 
 class Row(NamedTuple):
@@ -180,7 +187,7 @@ class Query:
         # @TODO: check if the edge exists before adding node
 
         # return self._by_with_to(None, identifier, var)
-        raise NotImplementedError
+        return self._by_with_to(None, identifier, var)
 
     def match(
             self,
@@ -206,7 +213,11 @@ class Query:
 
     def get_table_and_conditions_with_vars(self) -> Tuple[Rows, Conditions]:
         """Populate self.table and self.conditions with appropriate variables"""
-        vars_iterator = vars_generator()
+        vars_iterator = vars_generator({
+            row.var[1:]
+            for row in self.table
+            if row.var and row.var.startswith('_')
+        })
         values_iterator = vars_generator()
 
         # Assign a variable to each Row.
@@ -274,7 +285,7 @@ class Query:
             lambda q: stringify_match(*q),
             (table[i:i+3] for i in range(0, len(table) - 1, 2)),
         )
-        wheres = ()
+        wheres = tuple(c.build(table[c.row].var) for c in conditions)
         returns = sorted({row.var for row in table})
 
         return ''.join((

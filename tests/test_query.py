@@ -16,6 +16,14 @@ class Tests(TestCase):
             self.assertEqual(next(iterator), chr(char_number))
         self.assertEqual(next(iterator), 'aa')
 
+    def test_vars_generator_with_taken_vars(self):
+        """`vars_generator` should not yield vars already taken"""
+        iterator = vars_generator({'a', 'b'})
+
+        for char_number in range(ord('c'), ord('z') + 1):
+            self.assertEqual(next(iterator), chr(char_number))
+        self.assertEqual(next(iterator), 'aa')
+
 
 class QueryTests(TestCase):
     """Query tests"""
@@ -142,3 +150,31 @@ class QueryTests(TestCase):
             'RETURN _a, _b, _c',
         ))
         self.assertEqual(str(query), expected)
+
+    def test_where_with_edge(self):
+        """Check the .where() method with a Node as a parameter"""
+        class SomeNode(Node):
+            """Node example"""
+            attr = attributes.AnyAttr(prop_name='node_name')
+
+        class SomeEdge(Edge):
+            """Edge example"""
+            attr = attributes.AnyAttr(prop_name='edge_name')
+
+        query = (Query()
+                 .match(SomeNode, 'f')
+                 .where(SomeNode.attr == 2)
+                 .connected_through(SomeEdge, '_a')
+                 .where(SomeEdge.attr != '2')
+                 .with_('')
+                 )
+        expected = '\n'.join((
+            'MATCH (f:SomeNode)-[_a:SOMEEDGE]-(_b)',
+            'WHERE f.node_name = $a,',
+            '  AND _a.edge_name <> $b',
+            'RETURN _a, _b, f',
+        ))
+        self.assertEqual(str(query), expected)
+
+        expected = {'a': 2, 'b': '2'}
+        self.assertEqual(query.get_vars(), expected)
