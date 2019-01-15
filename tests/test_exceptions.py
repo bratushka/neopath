@@ -10,3 +10,6 @@ class ExceptionsTests(TestCase):
         """Test NeopathException"""
         with self.assertRaisesRegex(NeopathException, NeopathException.message):
             raise NeopathException
+
+        with self.assertRaisesRegex(NeopathException, 'blah'):
+            raise NeopathException('blah')

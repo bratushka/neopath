@@ -7,6 +7,7 @@ from typing import (
     Iterator,
     Mapping,
     NamedTuple,
+    NoReturn,
     Optional,
     Set,
     Tuple,
@@ -14,7 +15,7 @@ from typing import (
     Union,
 )
 
-from . import attributes, entities
+from . import attributes, entities, exceptions
 
 
 NodeIdentifier = Union[Type[entities.Node], str]
@@ -23,6 +24,11 @@ EntityIdentifier = Union[NodeIdentifier, EdgeIdentifier]
 WhereStatement = Union[str, attributes.Comparison]
 Conditions = Tuple['Condition', ...]
 Rows = Tuple['Row', ...]
+
+START_WITH_MATCH = 'A matching query should start with a `match` method'
+EDGE_BEFORE_NODE = 'Two nodes should be connected through an edge'
+EDGE_AFTER_EDGE = 'Edge can not exist right after another edge'
+DOUBLE_MATCH = 'Method `match` can only be used once per query'
 
 
 def mapper_builder(identifier: EntityIdentifier) -> Callable:
@@ -104,6 +110,18 @@ class Query:
         """Add a row to the table returning a copied Query object"""
         return self.copy(table=(*self.table, row))
 
+    def _check_integrity(self, is_node: bool) -> NoReturn:
+        """Query should be a chain of node-edge-node-edge-..."""
+        if not self.table:
+            raise exceptions.BadQuery(START_WITH_MATCH)
+
+        if is_node:
+            if len(self.table) % 2:
+                raise exceptions.BadQuery(EDGE_BEFORE_NODE)
+        else:
+            if not len(self.table) % 2:
+                raise exceptions.BadQuery(EDGE_AFTER_EDGE)
+
     def connected_through(  # pylint: disable=too-many-arguments
             self,
             identifier: EdgeIdentifier,
@@ -113,7 +131,8 @@ class Query:
             _node_types: NodeIdentifier = entities.Node,
     ) -> 'Query':
         """Add an edge to the query"""
-        # @TODO: check if the node exists before adding edge
+        self._check_integrity(False)
+
         # @TODO: add node_types to the conditions
         # @TODO: check hops values
         hops = '' if min_hops is None and max_hops is None else '*%s..%s' % (
@@ -156,7 +175,7 @@ class Query:
 
         The query will look like ()-[]->(this_node).
         """
-        # @TODO: check if the edge exists before adding node
+        self._check_integrity(True)
 
         return self._by_with_to(True, identifier, var)
 
@@ -170,7 +189,7 @@ class Query:
 
         The query will look like ()<-[]-(this_node).
         """
-        # @TODO: check if the edge exists before adding node
+        self._check_integrity(True)
 
         return self._by_with_to(False, identifier, var)
 
@@ -184,9 +203,8 @@ class Query:
 
         The query will look like ()-[]-(this_node).
         """
-        # @TODO: check if the edge exists before adding node
+        self._check_integrity(True)
 
-        # return self._by_with_to(None, identifier, var)
         return self._by_with_to(None, identifier, var)
 
     def match(
@@ -197,6 +215,9 @@ class Query:
         """
         Start a MATCH query.
         """
+        if self.table:
+            raise exceptions.BadQuery(DOUBLE_MATCH)
+
         return self._by_with_to(None, identifier, var)
 
     def where(self, *conditions: WhereStatement) -> 'Query':

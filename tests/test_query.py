@@ -1,7 +1,7 @@
 """Tests for neopath.query"""
 from unittest import TestCase
 
-from neopath import attributes
+from neopath import attributes, exceptions
 from neopath.entities import Edge, Node
 from neopath.query import Query, vars_generator
 
@@ -178,3 +178,34 @@ class QueryTests(TestCase):
 
         expected = {'a': 2, 'b': '2'}
         self.assertEqual(query.get_vars(), expected)
+
+    def test_bad_chain_query(self):
+        """
+        Check if match/to/by/with_/connected_through statements are being
+         applied in a correct order
+        """
+        for method in ('with_', 'to', 'by', 'connected_through'):
+            with self.assertRaisesRegex(
+                    exceptions.BadQuery,
+                    r'A matching query should start with a `match` method',
+            ):
+                getattr(Query(), method)('')
+
+        for method in ('with_', 'to', 'by'):
+            with self.assertRaisesRegex(
+                    exceptions.BadQuery,
+                    r'Two nodes should be connected through an edge',
+            ):
+                getattr(Query().match(''), method)('')
+
+        with self.assertRaisesRegex(
+                exceptions.BadQuery,
+                r'Edge can not exist right after another edge',
+        ):
+            Query().match('').connected_through('').connected_through('')
+
+        with self.assertRaisesRegex(
+                exceptions.BadQuery,
+                r'Method `match` can only be used once per query',
+        ):
+            Query().match('').match('')
