@@ -169,9 +169,9 @@ class QueryTests(TestCase):
             '      _h = (_e)-[*..3]->(_i),',
             '      _l = (_i)-[*1..3]->(_m),',
             '      (_m)-[_n]->(_o)',
-            'WITH *, relationships(_d)[1..-1] AS _b, nodes(_d)[1..-1] AS _c,',
-            '        relationships(_h)[1..-1] AS _f, nodes(_h)[1..-1] AS _g,',
-            '        relationships(_l)[1..-1] AS _j, nodes(_l)[1..-1] AS _k',
+            'WITH *, relationships(_d) AS _b, nodes(_d)[1..-1] AS _c,',
+            '        relationships(_h) AS _f, nodes(_h)[1..-1] AS _g,',
+            '        relationships(_l) AS _j, nodes(_l)[1..-1] AS _k',
             'RETURN _a, _b, _c, _e, _f, _g, _i, _j, _k, _m, _n, _o',
         ))
 

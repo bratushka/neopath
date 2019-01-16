@@ -338,7 +338,7 @@ class Query:
 
         # Append the WITH part only if needed.
         with_part = 'WITH *, %s' % ',\n        '.join(
-            'relationships({0})[1..-1] AS {1}, nodes({0})[1..-1] AS {2}'.format(
+            'relationships({0}) AS {1}, nodes({0})[1..-1] AS {2}'.format(
                 row.path_var, row.edges_var, row.nodes_var
             ) for row in table[1::2]
             if row.hops
