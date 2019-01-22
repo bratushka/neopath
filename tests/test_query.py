@@ -205,6 +205,9 @@ class QueryTests(TestCase):
         expected = {'a': 2, 'b': '2'}
         self.assertEqual(query.get_vars(), expected)
 
+    # def test_match_one_of_entities(self):
+    #     """Should match an arbitrary number of labels or types"""
+
     def test_bad_chain_query(self):
         """
         Check if match/to/by/with_/connected_through statements are being

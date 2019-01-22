@@ -3,12 +3,166 @@ import collections
 from typing import (
     Tuple,
     Type,
+    Union,
 )
 
 from . import attributes, exceptions
 
 
-class MetaEntity(type):
+Identifier = Union[str, 'MetaEntity', 'Logic']
+
+
+def inline_identifier_builder(identifier: Identifier) -> str:
+    """Build an inline_identifier from an EntityIdentifier"""
+    if isinstance(identifier, str):
+        return '' if not identifier else ':' + identifier
+    if isinstance(identifier, MetaNode):
+        return ':' + ':'.join(identifier.neo.labels)
+    if isinstance(identifier, MetaEdge):
+        return ':' + identifier.neo.type
+    raise NotImplementedError
+
+
+class BitwiseMixin:
+    """Mixin for &, |, ^ and ~ operators"""
+    def __and__(self, other: Identifier) -> 'And':
+        """& operator"""
+        return And(self, other)
+
+    def __or__(self, other: Identifier) -> 'Or':
+        """| operator"""
+        return Or(self, other)
+
+    def __xor__(self, other: Identifier) -> 'Xor':
+        """^ operator"""
+        return Xor(self, other)
+
+    # def __invert__(self):
+    #     """~ operator"""
+    #     raise NotImplementedError
+
+
+class Logic(BitwiseMixin):
+    """A generic for classes Or, And, Xor, ..."""
+    identifiers = ()
+
+    def __init__(
+            self,
+            first: 'BitwiseMixin',
+            _second: Identifier,
+    ):
+        self.is_node = isinstance(first, MetaNode)\
+                       or getattr(first, 'is_node', False)
+
+    def condition_for(self, var: str) -> str:
+        """Generate a WHERE statement for variable `var`"""
+        raise NotImplementedError
+
+    def inline_for(self, var: str) -> str:
+        """Generate an inline identifier for variable `var`"""
+        raise NotImplementedError
+
+
+class And(Logic):
+    """AND operator"""
+    def __init__(
+            self,
+            first: 'BitwiseMixin',
+            second: Identifier,
+    ):
+        super().__init__(first, second)
+
+        if self.is_node:
+            for identifier in (first, second):
+                if isinstance(identifier, And):
+                    self.identifiers += identifier.identifiers
+                elif isinstance(identifier, MetaNode):
+                    self.identifiers += identifier.neo.labels
+                elif isinstance(identifier, str):
+                    self.identifiers += (identifier,)
+                else:
+                    raise NotImplementedError
+        else:
+            raise exceptions.MultipleEdgeTypes
+
+    def condition_for(self, var: str) -> str:
+        """Generate a WHERE statement for variable `var`"""
+        return ''
+
+    def inline_for(self, var: str) -> str:
+        """Generate an inline identifier for variable `var`"""
+        if all(isinstance(label, str) for label in self.identifiers):
+            return ':' + ':'.join(self.identifiers)
+        raise NotImplementedError
+
+
+class Or(Logic):
+    """OR operator"""
+    def __init__(
+            self,
+            first: 'BitwiseMixin',
+            second: Identifier,
+    ):
+        super().__init__(first, second)
+
+        for identifier in (first, second):
+            if isinstance(identifier, Or):
+                self.identifiers += identifier.identifiers
+            elif isinstance(identifier, MetaEdge):
+                self.identifiers += (identifier.neo.type,)
+            elif isinstance(identifier, MetaNode):
+                self.identifiers += (':'.join(identifier.neo.labels),)
+            elif isinstance(identifier, str):
+                self.identifiers += (identifier,)
+            else:
+                raise NotImplementedError
+
+    def condition_for(self, var: str) -> str:
+        """Generate a WHERE statement for variable `var`"""
+        if not self.is_node:
+            return ''
+
+        connector = ') OR (%s:' % var
+        return '(' + var + ':' + connector.join(self.identifiers) + ')'
+
+    def inline_for(self, var: str) -> str:
+        """Generate an inline identifier for variable `var`"""
+        return ':' + '|:'.join(self.identifiers) if not self.is_node else ''
+
+
+class Xor(Logic):
+    """XOR operator"""
+    def __init__(
+            self,
+            first: 'BitwiseMixin',
+            second: Identifier,
+    ):
+        super().__init__(first, second)
+
+        if self.is_node:
+            for identifier in (first, second):
+                if isinstance(identifier, Xor):
+                    self.identifiers += identifier.identifiers
+                elif isinstance(identifier, MetaNode):
+                    self.identifiers += (':'.join(identifier.neo.labels),)
+                elif isinstance(identifier, str):
+                    self.identifiers += (identifier,)
+                else:
+                    raise NotImplementedError
+        else:
+            raise exceptions.MultipleEdgeTypes
+
+    def condition_for(self, var: str) -> str:
+        """Generate a WHERE statement for variable `var`"""
+        connector = ') XOR (%s:' % var
+        return '(' + var + ':' + connector.join(self.identifiers) + ')'
+
+    def inline_for(self, var: str) -> str:
+        """Generate an inline identifier for variable `var`"""
+        return ''
+
+
+class MetaEntity(type, BitwiseMixin):
     """Metaclass for Entity"""
     def __new__(mcs: Type, name: str, bases: Tuple[Type, ...], attrs: dict):
         cls = super().__new__(mcs, name, bases, attrs)

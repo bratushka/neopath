@@ -25,3 +25,8 @@ class BadEdgeType(NeopathException):
 
 class BadQuery(NeopathException):
     """Query construction error"""
+
+
+class MultipleEdgeTypes(NeopathException):
+    """Trying to build a WHERE statement with more than 1 type for edge"""
+    message = 'An edge should have exactly one type'

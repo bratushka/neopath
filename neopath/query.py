@@ -36,17 +36,6 @@ def mapper_builder(identifier: EntityIdentifier) -> Callable:
     return lambda: identifier
 
 
-def inline_identifier_builder(identifier: EntityIdentifier) -> str:
-    """Build an inline_identifier from an EntityIdentifier"""
-    if isinstance(identifier, str):
-        return '' if not identifier else ':' + identifier
-    if issubclass(identifier, entities.Node):
-        return ':' + ':'.join(identifier.neo.labels)
-    if issubclass(identifier, entities.Edge):
-        return ':' + identifier.neo.type
-    raise NotImplementedError
-
-
 def vars_generator(taken: Set[str] = None) -> Iterator[str]:
     """Generate an iterator of: a, b, ..., z, aa, ab, ..."""
     taken = taken or set()
@@ -165,7 +154,7 @@ class Query:
 
         row = Row(
             mapper=mapper_builder(identifier),
-            inline_identifier=inline_identifier_builder(identifier),
+            inline_identifier=entities.inline_identifier_builder(identifier),
             var=var,
             hops=hops,
         )
@@ -181,7 +170,7 @@ class Query:
         """Add a node to the query"""
         row = Row(
             mapper=mapper_builder(identifier),
-            inline_identifier=inline_identifier_builder(identifier),
+            inline_identifier=entities.inline_identifier_builder(identifier),
             var=var,
             direction=direction,
         )
