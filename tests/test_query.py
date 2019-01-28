@@ -165,15 +165,16 @@ class QueryTests(TestCase):
                  .to('')
                  )
         expected = '\n'.join((
-            'MATCH _d = (_a)-[*1..]->(_e),',
-            '      _h = (_e)-[*..3]->(_i),',
-            '      _l = (_i)-[*1..3]->(_m),',
-            '      (_m)-[_n]->(_o)',
-            'WITH *, relationships(_d) AS _b, nodes(_d)[1..-1] AS _c,',
-            '        relationships(_h) AS _f, nodes(_h)[1..-1] AS _g,',
-            '        relationships(_l) AS _j, nodes(_l)[1..-1] AS _k',
-            'RETURN _a, _b, _c, _e, _f, _g, _i, _j, _k, _m, _n, _o',
+            'MATCH _f = (_a)-[*1..]->(_g),',
+            '      _l = (_g)-[*..3]->(_m),',
+            '      _r = (_m)-[*1..3]->(_s),',
+            '      (_s)-[_t]->(_u)',
+            'WITH *, relationships(_f) AS _b, nodes(_f)[1..-1] AS _d,',
+            '        relationships(_l) AS _h, nodes(_l)[1..-1] AS _j,',
+            '        relationships(_r) AS _n, nodes(_r)[1..-1] AS _p',
+            'RETURN _a, _b, _d, _g, _h, _j, _m, _n, _p, _s, _t, _u',
         ))
+        print(str(query))
 
         self.assertEqual(str(query), expected)
 

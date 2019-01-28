@@ -58,7 +58,9 @@ class Row(NamedTuple):
     hops: str = ''  # '' if min and max hops equal 1, else '*min..max'
     path_var: str = ''  # required to handle arbitrary number of hops
     nodes_var: str = ''  # required to handle arbitrary number of hops
+    nodes_elem_var: str = ''  # required to handle WHERE conditions for hops
     edges_var: str = ''  # required to handle arbitrary number of hops
+    edges_elem_var: str = ''  # required to handle WHERE conditions for hops
     result: str = ''  # string for the RETURN statement
 
     def autocomplete(self, vars_iterator: Iterator[str]) -> 'Row':
@@ -74,7 +76,9 @@ class Row(NamedTuple):
 
         if self.hops:
             data['edges_var'] = '_' + next(vars_iterator)
+            data['edges_elem_var'] = '_' + next(vars_iterator)
             data['nodes_var'] = '_' + next(vars_iterator)
+            data['nodes_elem_var'] = '_' + next(vars_iterator)
             data['path_var'] = '_' + next(vars_iterator)
             data['result'] = data['edges_var'] + ', ' + data['nodes_var']
 

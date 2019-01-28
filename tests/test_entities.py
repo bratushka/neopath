@@ -2,91 +2,163 @@
 from unittest import TestCase
 
 from neopath import exceptions
-from neopath.entities import Edge, Node
+from neopath.entities import Edge, Node, And, Or, Xor
 
 
 class LogicTests(TestCase):
     """Tests for Logic subclasses"""
-    def test_simple_and(self):
-        """Test basic And logic"""
+    def test_init(self):
+        """Test identifiers composition"""
+        or_args = ('this', 'stays')
+
+        actual = And(
+            '',  # this should be ignored
+            'Some',
+            'Some',  # deduplicate
+            And('deeply', And(  # all of these should be flattened
+                'CONSTRUCTED',
+                'Identifier',
+            )),
+            Or(*or_args),  # this should be added as is
+        )
+        expected = ('Some', 'deeply', 'CONSTRUCTED', 'Identifier')
+
+        self.assertEqual(actual.identifiers[:-1], expected)
+        self.assertIsInstance(actual.identifiers[-1], Or)
+        self.assertEqual(actual.identifiers[-1].identifiers, or_args)
+
+    def test_bitwise_operators(self):
+        """Bitwise operators should return appropriate Logic instances"""
+        class SomeNode(Node):
+            """Node example"""
+
+        expected = (SomeNode, 'OtherNode')
+
+        actual = SomeNode & 'OtherNode'
+        self.assertIsInstance(actual, And)
+        self.assertEqual(actual.identifiers, expected)
+
+        actual = SomeNode | 'OtherNode'
+        self.assertIsInstance(actual, Or)
+        self.assertEqual(actual.identifiers, expected)
+
+        actual = SomeNode ^ 'OtherNode'
+        self.assertIsInstance(actual, Xor)
+        self.assertEqual(actual.identifiers, expected)
+
+    def test_and(self):
+        """Test And.get_inline_and_where method"""
         class SomeNode(Node):
             """Node example"""
         class OtherNode(Node):
             """Node example"""
-            class Neo:
-                """Neo example"""
-                labels = ('one', 'two')
+        actual = SomeNode & (OtherNode & 'Hello')
+        inline, where = actual.get_inline_and_where(True)
+        expected_inline = ':SomeNode:OtherNode:Hello'
+        expected_where = ''
+        self.assertEqual(inline, expected_inline)
+        self.assertEqual(where, expected_where)
+
+        with self.assertRaises(exceptions.MultipleEdgeTypes):
+            And('any', 'types').get_inline_and_where(False)
+
+    def test_or(self):
+        """Test Or.get_inline_and_where method"""
+        class SomeNode(Node):
+            """Node example"""
+        class OtherNode(Node):
+            """Node example"""
+        actual = SomeNode | (OtherNode | 'Hello')
+        inline, where = actual.get_inline_and_where(True)
+        expected_inline = ''
+        expected_where = '{0}:SomeNode OR {0}:OtherNode OR {0}:Hello'
+        self.assertEqual(inline, expected_inline)
+        self.assertEqual(where, expected_where)
 
         class SomeEdge(Edge):
             """Edge example"""
         class OtherEdge(Edge):
             """Edge example"""
+        actual = SomeEdge | (OtherEdge | 'Hello')
+        inline, where = actual.get_inline_and_where(False)
+        expected_inline = ':SOMEEDGE|:OTHEREDGE|:Hello'
+        expected_where = ''
+        self.assertEqual(inline, expected_inline)
+        self.assertEqual(where, expected_where)
 
-        actual = (SomeNode & OtherNode & 'Unexpected')
-        condition = ''
-        inline = ':SomeNode:one:two:Unexpected'
-        self.assertEqual(actual.condition_for('a'), condition)
-        self.assertEqual(actual.inline_for('a'), inline)
-
-        with self.assertRaisesRegex(
-                exceptions.MultipleEdgeTypes,
-                r'An edge should have exactly one type',
-        ):
-            SomeEdge & OtherEdge  # pylint: disable=pointless-statement
-
-    def test_simple_or(self):
-        """Test basic Or logic"""
+    def test_xor(self):
+        """Test Xor.get_inline_and_where method"""
         class SomeNode(Node):
             """Node example"""
         class OtherNode(Node):
             """Node example"""
-            class Neo:
-                """Neo example"""
-                labels = ('two', 'one')
+        actual = SomeNode ^ (OtherNode ^ 'Hello')
+        inline, where = actual.get_inline_and_where(True)
+        expected_inline = ''
+        expected_where = '{0}:SomeNode XOR {0}:OtherNode XOR {0}:Hello'
+        self.assertEqual(inline, expected_inline)
+        self.assertEqual(where, expected_where)
 
         class SomeEdge(Edge):
             """Edge example"""
         class OtherEdge(Edge):
             """Edge example"""
+        actual = SomeEdge ^ (OtherEdge ^ 'Hello')
+        inline, where = actual.get_inline_and_where(False)
+        expected_inline = ':SOMEEDGE|:OTHEREDGE|:Hello'
+        expected_where = ''
+        self.assertEqual(inline, expected_inline)
+        self.assertEqual(where, expected_where)
 
-        actual = (SomeNode | OtherNode | 'Unexpected')
-        condition = '(a:SomeNode) OR (a:one:two) OR (a:Unexpected)'
-        inline = ''
-        self.assertEqual(actual.condition_for('a'), condition)
-        self.assertEqual(actual.inline_for('a'), inline)
-
-        actual = (SomeEdge | OtherEdge | 'Unexpected')
-        condition = ''
-        inline = ':SOMEEDGE|:OTHEREDGE|:Unexpected'
-        self.assertEqual(actual.condition_for('a'), condition)
-        self.assertEqual(actual.inline_for('a'), inline)
-
-    def test_simple_xor(self):
-        """Test basic Xor logic"""
+    def test_and_or_xor(self):
+        """Test Xor.get_inline_and_where method"""
         class SomeNode(Node):
             """Node example"""
         class OtherNode(Node):
             """Node example"""
-            class Neo:
-                """Neo example"""
-                labels = ('two', 'one')
+        # actual = SomeNode | OtherNode & 'Hello' ^ 'World'
+        actual = SomeNode | OtherNode & 'Hello' ^ 'World'
+        inline, where = actual.get_inline_and_where(True)
+        expected_inline = ''
+        expected_where = '{0}:SomeNode OR ({0}:OtherNode:Hello XOR {0}:World)'
+        self.assertEqual(inline, expected_inline)
+        self.assertEqual(where, expected_where)
 
-        class SomeEdge(Edge):
-            """Edge example"""
-        class OtherEdge(Edge):
-            """Edge example"""
+    def test_complex_logic(self):
+        """Test how And, Or and Xor interact with each other"""
+        class A(Node):  # pylint: disable=invalid-name
+            """Node example"""
+        logic_instances = (
+            And(And(A, 'B'), Or('C', 'D'), Xor('E', 'F')),
+            Or(And('G', 'H'), Or('I', 'J'), Xor('K', 'L')),
+            Xor(And('M', 'N'), Or('O', 'P'), Xor('Q', 'R')),
+        )
+        logic_parts = (
+            '{0}:A:B AND ({0}:C OR {0}:D) AND ({0}:E XOR {0}:F)',
+            '{0}:G:H OR {0}:I OR {0}:J OR ({0}:K XOR {0}:L)',
+            '{0}:M:N XOR ({0}:O OR {0}:P) XOR {0}:Q XOR {0}:R',
+        )
 
-        actual = (SomeNode ^ OtherNode ^ 'Unexpected')
-        condition = '(a:SomeNode) XOR (a:one:two) XOR (a:Unexpected)'
-        inline = ''
-        self.assertEqual(actual.condition_for('a'), condition)
-        self.assertEqual(actual.inline_for('a'), inline)
+        actual = And(*logic_instances)
+        inline, where = actual.get_inline_and_where(True)
+        expected_inline = ''
+        expected_where = '%s AND (%s) AND (%s)' % logic_parts
+        self.assertEqual(inline, expected_inline)
+        self.assertEqual(where, expected_where)
 
-        with self.assertRaisesRegex(
-                exceptions.MultipleEdgeTypes,
-                r'An edge should have exactly one type',
-        ):
-            SomeEdge ^ OtherEdge  # pylint: disable=pointless-statement
+        actual = Or(*logic_instances)
+        inline, where = actual.get_inline_and_where(True)
+        expected_inline = ''
+        expected_where = '(%s) OR %s OR (%s)' % logic_parts
+        self.assertEqual(inline, expected_inline)
+        self.assertEqual(where, expected_where)
+
+        actual = Xor(*logic_instances)
+        inline, where = actual.get_inline_and_where(True)
+        expected_inline = ''
+        expected_where = '(%s) XOR (%s) XOR %s' % logic_parts
+        self.assertEqual(inline, expected_inline)
+        self.assertEqual(where, expected_where)
 
 
 class NodeNeoTests(TestCase):

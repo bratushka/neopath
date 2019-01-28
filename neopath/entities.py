@@ -9,7 +9,7 @@ from typing import (
 from . import attributes, exceptions
 
 
-Identifier = Union[str, 'MetaEntity', 'Logic']
+Identifier = Union[str, 'BitwiseMixin', Type['Edge'], Type['Node']]
 
 
 def inline_identifier_builder(identifier: Identifier) -> str:
@@ -42,124 +42,141 @@ class BitwiseMixin:
     #     raise NotImplementedError
 
 
+class WhereMixin:
+    """
+    Mixin adding the `get_or_xor_where_part` method.
+
+    ATTENTION: only to be used with Logic subclasses.
+    """
+    operator = ''
+
+    def get_or_xor_where_part(self, is_node: bool, many: bool) -> str:
+        """
+        Construct the `where` part of the `get_inline_and_where` for Or and Xor.
+        """
+        parts = []
+        # noinspection PyUnresolvedReferences
+        for ident in self.identifiers:
+            if isinstance(ident, str):
+                parts.append('{0}:' + ident)
+            elif isinstance(ident, type) and issubclass(ident, Node):
+                parts.append('{0}:' + ':'.join(ident.neo.labels))
+            elif isinstance(ident, Logic):
+                _inline, _where = ident.get_inline_and_where(is_node, many)
+                if _inline:
+                    parts.append('{0}%s' % _inline)
+                else:
+                    parts.append('(' + _where + ')')
+            else:
+                raise NotImplementedError
+        return self.operator.join(parts)
+
+
 class Logic(BitwiseMixin):
     """A generic for classes Or, And, Xor, ..."""
-    identifiers = ()
+    def __init__(self, *identifiers: Identifier):
+        unique = []
+        existing = set()
+        for ident in filter(bool, identifiers):
+            if ident not in existing:
+                existing.add(ident)
+                unique.append(ident)
 
-    def __init__(
+        flattened = []
+        for ident in unique:
+            if isinstance(ident, self.__class__):
+                flattened.extend(ident.identifiers)
+            else:
+                flattened.append(ident)
+
+        self.identifiers = tuple(flattened)
+
+    def get_inline_and_where(  # pylint: disable=no-self-use
             self,
-            first: 'BitwiseMixin',
-            _second: Identifier,
-    ):
-        self.is_node = isinstance(first, MetaNode)\
-                       or getattr(first, 'is_node', False)
-
-    def condition_for(self, var: str) -> str:
-        """Generate a WHERE statement for variable `var`"""
-        raise NotImplementedError
-
-    def inline_for(self, var: str) -> str:
-        """Generate an inline identifier for variable `var`"""
+            _is_node: bool,
+            _many: bool = False,
+    ) -> Tuple[str, str]:
+        """Get the inline identifier and the WHERE statement"""
         raise NotImplementedError
 
 
 class And(Logic):
     """AND operator"""
-    def __init__(
+    def get_inline_and_where(
             self,
-            first: 'BitwiseMixin',
-            second: Identifier,
-    ):
-        super().__init__(first, second)
-
-        if self.is_node:
-            for identifier in (first, second):
-                if isinstance(identifier, And):
-                    self.identifiers += identifier.identifiers
-                elif isinstance(identifier, MetaNode):
-                    self.identifiers += identifier.neo.labels
-                elif isinstance(identifier, str):
-                    self.identifiers += (identifier,)
-                else:
-                    raise NotImplementedError
-        else:
+            is_node: bool,
+            many: bool = False,
+    ) -> Tuple[str, str]:
+        """Get the inline identifier and the WHERE statement"""
+        if not is_node:
             raise exceptions.MultipleEdgeTypes
 
-    def condition_for(self, var: str) -> str:
-        """Generate a WHERE statement for variable `var`"""
-        return ''
+        # Inline block
+        if all(
+                isinstance(i, str)
+                or (isinstance(i, type) and issubclass(i, Node))
+                for i in self.identifiers
+        ):
+            parts = []
+            for ident in self.identifiers:
+                if isinstance(ident, str):
+                    parts.append(ident)
+                else:
+                    parts.extend(ident.neo.labels)
+            inline = ':' + ':'.join(parts)
 
-    def inline_for(self, var: str) -> str:
-        """Generate an inline identifier for variable `var`"""
-        if all(isinstance(label, str) for label in self.identifiers):
-            return ':' + ':'.join(self.identifiers)
-        raise NotImplementedError
+            return inline, ''
+
+        # Where block
+        parts = []
+        for ident in self.identifiers:
+            if isinstance(ident, str):
+                parts.append(ident)
+            elif isinstance(ident, type) and issubclass(ident, Node):
+                parts.extend(ident.neo.labels)
+        parts = ['{0}:' + ':'.join(parts)]
+
+        for ident in self.identifiers:
+            if isinstance(ident, Logic):
+                _inline, _where = ident.get_inline_and_where(is_node, many)
+                parts.append('(' + _where + ')')
+        where = ' AND '.join(parts)
+
+        return '', where
 
 
-class Or(Logic):
+class Or(Logic, WhereMixin):
     """OR operator"""
-    def __init__(
+    operator = ' OR '
+
+    def get_inline_and_where(
             self,
-            first: 'BitwiseMixin',
-            second: Identifier,
-    ):
-        super().__init__(first, second)
+            is_node: bool,
+            many: bool = False,
+    ) -> Tuple[str, str]:
+        if not is_node:
+            parts = []
+            for ident in self.identifiers:
+                part = ident if isinstance(ident, str) else ident.neo.type
+                parts.append(part)
+            return ':' + '|:'.join(parts), ''
 
-        for identifier in (first, second):
-            if isinstance(identifier, Or):
-                self.identifiers += identifier.identifiers
-            elif isinstance(identifier, MetaEdge):
-                self.identifiers += (identifier.neo.type,)
-            elif isinstance(identifier, MetaNode):
-                self.identifiers += (':'.join(identifier.neo.labels),)
-            elif isinstance(identifier, str):
-                self.identifiers += (identifier,)
-            else:
-                raise NotImplementedError
-
-    def condition_for(self, var: str) -> str:
-        """Generate a WHERE statement for variable `var`"""
-        if not self.is_node:
-            return ''
-
-        connector = ') OR (%s:' % var
-        return '(' + var + ':' + connector.join(self.identifiers) + ')'
-
-    def inline_for(self, var: str) -> str:
-        """Generate an inline identifier for variable `var`"""
-        return ':' + '|:'.join(self.identifiers) if not self.is_node else ''
+        return '', self.get_or_xor_where_part(is_node, many)
 
 
-class Xor(Logic):
+class Xor(Logic, WhereMixin):
     """XOR operator"""
-    def __init__(
+    operator = ' XOR '
+
+    def get_inline_and_where(
             self,
-            first: 'BitwiseMixin',
-            second: Identifier,
-    ):
-        super().__init__(first, second)
+            is_node: bool,
+            many: bool = False,
+    ) -> Tuple[str, str]:
+        if not is_node:
+            return Or(*self.identifiers).get_inline_and_where(is_node, many)
 
-        if self.is_node:
-            for identifier in (first, second):
-                if isinstance(identifier, Xor):
-                    self.identifiers += identifier.identifiers
-                elif isinstance(identifier, MetaNode):
-                    self.identifiers += (':'.join(identifier.neo.labels),)
-                elif isinstance(identifier, str):
-                    self.identifiers += (identifier,)
-                else:
-                    raise NotImplementedError
-        else:
-            raise exceptions.MultipleEdgeTypes
-
-    def condition_for(self, var: str) -> str:
-        """Generate a WHERE statement for variable `var`"""
-        connector = ') XOR (%s:' % var
-        return '(' + var + ':' + connector.join(self.identifiers) + ')'
-
-    def inline_for(self, var: str) -> str:
-        """Generate an inline identifier for variable `var`"""
-        return ''
+        return '', self.get_or_xor_where_part(is_node, many)
 
 
 class MetaEntity(type, BitwiseMixin):
