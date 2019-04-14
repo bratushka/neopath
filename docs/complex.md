@@ -63,8 +63,8 @@ RETURN *
 
 ```cypher
 CREATE
-  (:Blue)-[:RANDOM]->(a:Purple)<-[:LOVES]-(b:Green),
-  (a)-[:HATES]->(b),
+  (:Blue)-[:RANDOM]->(a:Purple)<-[:LOVES { uid: 123 }]-(b:Green),
+  (a)-[:HATES { uid: 123 }]->(b),
   (b)-[:RANDOM]->(:Orange),
   (b)-[:RANDOM]->(:Blue)-[:RANDOM]->(:Orange),  // Should match
   (b)-[:RANDOM]->(:Blue)-[:RANDOM]->(:Purple)-[:RANDOM]->(:Orange),  // Should match

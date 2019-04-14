@@ -6,15 +6,15 @@ services:
     build: .
     container_name: neopath
     depends_on:
-      - neo
+      - db
     networks:
       - internal
     tty: true
     volumes:
       - .:/code/
 
-  neo:
-    container_name: neo
+  db:
+    container_name: db
     environment:
       - NEO4J_AUTH=neo4j/neopath
     image: neo4j:latest

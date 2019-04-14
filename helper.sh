@@ -2,7 +2,7 @@
 
 if [ -z $1 ]
 then
-    echo "No command passed to script"
+    echo "No command passed to script. Available commands: test, cover, lint."
     exit 1
 elif [ $1 = "test" ]
 then
@@ -13,8 +13,8 @@ then
     docker exec -it neopath coverage html -d cover
 elif [ $1 = "lint" ]
 then
-    docker exec -it neopath pylint neopath/ tests/
+    docker exec -it neopath pylint neopath/* tests/*
 else
-    echo "$1 is not a valid command"
+    echo "$1 is not a valid command. Available commands: test, cover, lint."
     exit 2
 fi
