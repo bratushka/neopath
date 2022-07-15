@@ -1,7 +1,7 @@
 astroid==2.1.0
 certifi==2018.11.29
 chardet==3.0.4
-codecov==2.0.15
+codecov==2.0.16
 coverage==4.5.2
 idna==2.8
 isort==4.3.4
